@@ -1,6 +1,8 @@
 <template>
   <div class="test-wrapper transform-center">
-    <router-view></router-view>
+    <circle-menu :menu="menu" :itemDegree="40" :totalDegree="180" :startDegree="90">
+      <div class="circle-menu-btn" slot="center-btn">设置</div>
+    </circle-menu>
   </div>
 </template>
 
@@ -12,14 +14,34 @@
     height: 500px;
     border: 1px solid #ccc;
   }
+  
+  .circle-menu-btn {
+    height: 45px;
+    width: 45px;
+    line-height: 45px;
+    text-align: center;
+
+    background-color: #ccc;
+    border-radius: 50%;
+    cursor: pointer;
+  }
 </style>
 
 <script type="text/ecmascript-6">
+  import TestCircleMenu from '../../components/CircleMenu.vue'
+
   export default {
     name: '',
     data () {
-      return {}
+      return {
+        menu: [
+          {text: 'A', id: 'A'},
+          {text: 'B', id: 'B'}
+        ]
+      }
     },
-    components: {}
+    components: {
+      'circle-menu': TestCircleMenu
+    }
   }
 </script>
