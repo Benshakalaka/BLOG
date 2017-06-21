@@ -1,6 +1,11 @@
 <template>
   <div class="test-wrapper transform-center">
-    <circle-menu :menu="menu" :itemDegree="40" :totalDegree="180" :startDegree="90">
+    <circle-menu
+      :menu="menu"
+      :itemDegree="50"
+      :totalDegree="180"
+      @select="menuClick"
+    >
       <div class="circle-menu-btn" slot="center-btn">设置</div>
     </circle-menu>
   </div>
@@ -14,7 +19,7 @@
     height: 500px;
     border: 1px solid #ccc;
   }
-  
+
   .circle-menu-btn {
     height: 45px;
     width: 45px;
@@ -36,8 +41,14 @@
       return {
         menu: [
           {text: 'A', id: 'A'},
-          {text: 'B', id: 'B'}
+          {text: 'B', id: 'B'},
+          {text: 'C', id: 'C'}
         ]
+      }
+    },
+    methods: {
+      menuClick () {
+        console.log(arguments)
       }
     },
     components: {

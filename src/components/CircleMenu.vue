@@ -1,9 +1,14 @@
 <template>
   <div class="_component-circle-menu transform-center" ref="circleMenuWrapper">
     <ul class="circle-menu-items clear-ul" ref="circleMenuContainer">
-      <li class="circle-menu-item" v-for="item in menu"></li>
+      <li
+        class="circle-menu-item"
+        v-for="item in menu"
+        @click="clickMenu(item.id)">
+        <span> {{ item.text }} </span>
+      </li>
     </ul>
-    <div class="transform-center" @click="activeMenu">
+    <div class="cm-btn-wrapper transform-center" @click="activeMenu">
       <slot name="center-btn"></slot>
     </div>
   </div>
@@ -11,29 +16,12 @@
 
 <style type="text/scss" lang="scss" scoped>
   @import "../common/common";
-  
-  // 容器宽高
-  $wrapper-width: 12em;
-  $wrapper-height: 12em;
-  
-  // 每个元素宽高
-  $item-width: 8em;
-  $item-height: 8em;
-
-  // 中心按钮宽高
-  $btn-width: 5em;
-  $btn-height: 5em;
-
-  // 旋转相关
-  $item-rotate-start: 0;
 
   ._component-circle-menu {
     // font-size: 12px;
   }
 
   .circle-menu-items {
-    width: $wrapper-width;
-    height: $wrapper-height;
     position: relative;
 
     overflow: hidden;
@@ -43,16 +31,15 @@
     transition: transform .5s ease .5s;
 
     .circle-menu-item {
-      width: $item-width;
-      height: $item-height;
       position: absolute;
-      left: - ($item-width - $wrapper-width / 2);
-      top: - ($item-height - $wrapper-height / 2);
-
-      background-color: #f00;
+      background-color: #000;
 
       transform-origin: 100% 100%;
       transition: transform .5s ease;
+
+      span {
+        color: #fff;
+      }
     }
 
     &.active {
@@ -63,6 +50,12 @@
         transition: transform .5s ease .5s;
       }
     }
+  }
+
+  .cm-btn-wrapper {
+    padding: .3em;
+    border-radius: 50%;
+    background-color: #fff;
   }
 
 </style>
@@ -76,10 +69,9 @@
     data () {
       return {
         // 每个菜单元素之间的间隔度数
-        _intervalDegree: 0,     // 每个元素的度数
-        _itemDegree: 0,         // 每个元素之间的间隔
-        _totalDegree: 0,        // 总度数
-        _skewDegree: 0          // 每个元素需要skew的度数
+        realItemDegree: [],         // 每个元素度数
+        realTotalDegree: 0,        // 总度数
+        menuList: null
       }
     },
     props: {
@@ -110,6 +102,21 @@
       totalDegree: {
         type: Number,
         required: true
+      },
+      // 外层宽高(单位em)
+      wrapperLength: {
+        type: Number,
+        default: 10
+      },
+      // 内层宽高(单位em)
+      innerLength: {
+        type: Number,
+        default: 7
+      },
+      // 顺时针(默认)或逆时针
+      rotateOrder: {
+        type: Boolean,
+        default: true
       }
     },
     methods: {
@@ -125,59 +132,109 @@
       },
       // 度数校验
       degreeCheck () {
-        const len = this.menu.length
-        // 移除单位
         let itemDegree = this.itemDegree
-        let totalDegree = Math.min(this.totalDegree, 360)
-        let intervalDegree = 0
+        let totalDegree = this.realTotalDegree = Math.min(this.totalDegree, 360)
+        let currTotalDegree = 0
+        let currItemDegree = 0
 
-        if (itemDegree * len > totalDegree) {
-          itemDegree = parseInt(totalDegree / len)
+        this.menu.forEach(item => {
+          currItemDegree = (item.degree || itemDegree)
+          this.realItemDegree.push(currItemDegree)
+          currTotalDegree += currItemDegree
+        })
+
+        if (currTotalDegree > totalDegree) {
+          const length = this.menu.length
+          const averageDegree = totalDegree / length
+          this.realItemDegree = Array.from({length}).map(() => averageDegree)
         }
-
-        const totalIntervalDegree = totalDegree - len * itemDegree
-        if (totalDegree === 360) {
-          intervalDegree = parseInt(totalIntervalDegree / len)
-        } else {
-          intervalDegree = parseInt(totalIntervalDegree / (len - 1))
-        }
-
-        const ret = {
-          _itemDegree: itemDegree,
-          _totalDegree: totalDegree,
-          _intervalDegree: intervalDegree,
-          _skewDegree: (90 - itemDegree)
-        }
-
-        Object.keys(ret).forEach(key => {
-          this[key] = ret[key]
+      },
+      // 根据菜单所在位置获取旋转角度
+      getRotateDegree (index) {
+        let currTotalDegree = 0
+        while (index--) { currTotalDegree += (this.realItemDegree[index] + this.intervalDegree) }
+        return this.rotateOrder ? (this.startDegree + currTotalDegree) : (-this.startDegree - currTotalDegree)
+      },
+      // 根据菜单所在位置获取倾斜角度
+      getSkewDegree (index) {
+        return (90 - this.realItemDegree[index])
+      },
+      // 处理每一个菜单
+      handleEachMenu (callback) {
+        this.menuList.forEach((item, index, array) => {
+          callback && callback({
+            item,
+            index,
+            array
+          })
         })
       },
       // 激活菜单
       activeMenu () {
         let classes = this.$refs.circleMenuContainer.classList
+        let callback = null
+
         if (classes.contains('active')) {
           classes.remove('active')
-          Array.from(this.$refs.circleMenuContainer.querySelectorAll('.circle-menu-item')).forEach((item, index) => {
-            item.style.transform = `rotate(${this.startDegree}deg) skew(${this._skewDegree}deg)`
-          })
+          let rotateDegree = this.getRotateDegree(0)
+          let skewDegree = this.getSkewDegree(0)
+          callback = ({item}) => {
+            item.style.transform = `rotate(${rotateDegree}deg) skew(${skewDegree}deg)`
+          }
         } else {
           classes.add('active')
-          Array.from(this.$refs.circleMenuContainer.querySelectorAll('.circle-menu-item')).forEach((item, index) => {
-            item.style.transform = `rotate(${this.startDegree + (this._itemDegree + this._intervalDegree) * index}deg) skew(${this._skewDegree}deg)`
-          })
+          callback = ({item, index}) => {
+            let rotateDegree = this.getRotateDegree(index)
+            let skewDegree = this.getSkewDegree(index)
+            item.style.transform = `rotate(${rotateDegree}deg) skew(${skewDegree}deg)`
+          }
         }
+
+        this.handleEachMenu(callback)
+      },
+      clickMenu (id) {
+        this.$emit('select', id)
+      }
+    },
+    computed: {
+      intervalDegree () {          // 每个元素的间隔度数
+        const len = this.menu.length
+        const totalIntervalDegree = this.realTotalDegree - this.realItemDegree.reduce((sum, item) => {
+          return sum + item
+        }, 0)
+        let intervalDegree = 0
+
+        if (this.realTotalDegree === 360) {
+          intervalDegree = parseInt(totalIntervalDegree / len)
+        } else {
+          intervalDegree = parseInt(totalIntervalDegree / (len - 1))
+        }
+
+        return intervalDegree
+      },
+      itemPosition () {
+        return -(this.innerLength - this.wrapperLength / 2)
       }
     },
     mounted () {
+      this.menuList = Array.from(this.$refs.circleMenuContainer.querySelectorAll('.circle-menu-item'))
+
       this.initProps(
         this.degreeCheck,
         this.changeFontSize
       )
 
+      // 宽高设置
+      this.$refs.circleMenuContainer.style.height = this.$refs.circleMenuContainer.style.width = `${this.wrapperLength}em`
+
       // 初始化菜单
-      Array.from(this.$refs.circleMenuContainer.querySelectorAll('.circle-menu-item')).forEach((item) => {
-        item.style.transform = `rotate(${this.startDegree}deg) skew(${this._skewDegree}deg)`
+      let rotateDegree = this.getRotateDegree(0)
+      let skewDegree = this.getSkewDegree(0)
+      this.handleEachMenu(({item, index}) => {
+        const style = item.style
+        style.transform = `rotate(${rotateDegree}deg) skew(${skewDegree}deg)`
+        style.height = style.width = `${this.innerLength}em`
+        style.top = style.left = `${this.itemPosition}em`
       })
     }
   }
